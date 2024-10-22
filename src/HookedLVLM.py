@@ -1,5 +1,5 @@
 import requests
-from transformers import AutoProcessor, LlavaForConditionalGeneration, BitsAndBytesConfig
+from transformers import AutoProcessor, LlavaNextProcessor, LlavaNextForConditionalGeneration, BitsAndBytesConfig
 from IPython.display import display
 import torch
 from PIL import Image
@@ -53,6 +53,7 @@ class HookedLVLM:
     """
     def __init__(self, 
                  model_id: str = "llava-hf/llava-1.5-7b-hf",
+                 model_cache_dir: str = model_cache_dir,
                  hook_loc: str = "text_model_in",
                  device: str = "cuda:0",
                  quantize: bool = False,
@@ -65,7 +66,7 @@ class HookedLVLM:
                     load_in_4bit=True,
                     bnb_4bit_compute_dtype=torch.float16,
                 )
-                self.model = LlavaForConditionalGeneration.from_pretrained(
+                self.model = LlavaNextForConditionalGeneration.from_pretrained(
                     model_id,
                     torch_dtype=torch.float16, 
                     low_cpu_mem_usage=True,
@@ -74,7 +75,7 @@ class HookedLVLM:
                     cache_dir=model_cache_dir
                 )
             elif quantize_type == "fp16":
-                self.model = LlavaForConditionalGeneration.from_pretrained(
+                self.model = LlavaNextForConditionalGeneration.from_pretrained(
                     model_id,
                     torch_dtype=torch.float16, 
                     low_cpu_mem_usage=True,
@@ -82,7 +83,7 @@ class HookedLVLM:
                     cache_dir=model_cache_dir
                 )
             elif quantize_type == "int8":
-                self.model = LlavaForConditionalGeneration.from_pretrained(
+                self.model = LlavaNextForConditionalGeneration.from_pretrained(
                     model_id,
                     torch_dtype=torch.int8, 
                     low_cpu_mem_usage=True,
@@ -90,12 +91,13 @@ class HookedLVLM:
                     cache_dir=model_cache_dir
                 )
         else:
-            self.model = LlavaForConditionalGeneration.from_pretrained(
+            self.model = LlavaNextForConditionalGeneration.from_pretrained(
                 model_id, 
                 device_map=device,
                 cache_dir=model_cache_dir)
 
-        self.processor = AutoProcessor.from_pretrained(model_id)
+        self.processor = LlavaNextProcessor.from_pretrained(model_id,
+                                                            cache_dir=model_cache_dir)
         self.hook_loc = hook_loc 
         self.data = None
 
@@ -173,6 +175,7 @@ class HookedLVLM:
         # Prepare inputs
         inputs = self.processor(text=prompt, images=image, return_tensors="pt")
         inputs.to(self.model.device)
+        print(inputs.keys())
 
         # Run forward pass
         with torch.no_grad():
